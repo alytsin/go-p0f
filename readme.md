@@ -1,2 +1,2 @@
-<h1>Minimal p0f implementation written using Golang</h1>
+<h1>Minimal p0f implementation written in Golang</h1>
 
