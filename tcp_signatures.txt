@@ -1,0 +1,120 @@
+
+For TCP traffic, signature layout is as follows:
+
+sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass
+
+  ver        - signature for IPv4 ('4'), IPv6 ('6'), or both ('*').
+
+               NEW SIGNATURES: P0f documents the protocol observed on the wire,
+               but you should replace it with '*' unless you have observed some
+               actual differences between IPv4 and IPv6 traffic, or unless the
+               software supports only one of these versions to begin with.
+
+  ittl       - initial TTL used by the OS. Almost all operating systems use
+               64, 128, or 255; ancient versions of Windows sometimes used
+               32, and several obscure systems sometimes resort to odd values
+               such as 60.
+
+               NEW SIGNATURES: P0f will usually suggest something, using the
+               format of 'observed_ttl+distance' (e.g. 54+10). Consider using
+               traceroute to check that the distance is accurate, then sum up
+               the values. If initial TTL can't be guessed, p0f will output
+               'nnn+?', and you need to use traceroute to estimate the '?'.
+
+               A handful of userspace tools will generate random TTLs. In these
+               cases, determine maximum initial TTL and then add a - suffix to
+               the value to avoid confusion.
+
+  olen       - length of IPv4 options or IPv6 extension headers. Usually zero
+               for normal IPv4 traffic; always zero for IPv6 due to the
+               limitations of libpcap.
+
+               NEW SIGNATURES: Copy p0f output literally.
+
+  mss        - maximum segment size, if specified in TCP options. Special value
+               of '*' can be used to denote that MSS varies depending on the
+               parameters of sender's network link, and should not be a part of
+               the signature. In this case, MSS will be used to guess the
+               type of network hookup according to the [mtu] rules.
+
+               NEW SIGNATURES: Use '*' for any commodity OSes where MSS is
+               around 1300 - 1500, unless you know for sure that it's fixed.
+               If the value is outside that range, you can probably copy it
+               literally.
+
+  wsize      - window size. Can be expressed as a fixed value, but many
+               operating systems set it to a multiple of MSS or MTU, or a
+               multiple of some random integer. P0f automatically detects these
+               cases, and allows notation such as 'mss*4', 'mtu*4', or '%8192'
+               to be used. Wilcard ('*') is possible too.
+
+               NEW SIGNATURES: Copy p0f output literally. If frequent variations
+               are seen, look for obvious patterns. If there are no patterns,
+               '*' is a possible alternative.
+
+  scale      - window scaling factor, if specified in TCP options. Fixed value
+               or '*'.
+
+               NEW SIGNATURES: Copy literally, unless the value varies randomly.
+               Many systems alter between 2 or 3 scaling factors, in which case,
+               it's better to have several 'sig' lines, rather than a wildcard.
+
+  olayout    - comma-delimited layout and ordering of TCP options, if any. This
+               is one of the most valuable TCP fingerprinting signals. Supported
+               values:
+
+               eol+n  - explicit end of options, followed by n bytes of padding
+               nop    - no-op option
+               mss    - maximum segment size
+               ws     - window scaling
+               sok    - selective ACK permitted
+               sack   - selective ACK (should not be seen)
+               ts     - timestamp
+               ?n     - unknown option ID n
+
+               NEW SIGNATURES: Copy this string literally.
+
+  quirks     - comma-delimited properties and quirks observed in IP or TCP
+               headers:
+
+               df     - "don't fragment" set (probably PMTUD); ignored for IPv6
+               id+    - DF set but IPID non-zero; ignored for IPv6
+               id-    - DF not set but IPID is zero; ignored for IPv6
+               ecn    - explicit congestion notification support
+               0+     - "must be zero" field not zero; ignored for IPv6
+               flow   - non-zero IPv6 flow ID; ignored for IPv4
+
+               seq-   - sequence number is zero
+               ack+   - ACK number is non-zero, but ACK flag not set
+               ack-   - ACK number is zero, but ACK flag set
+               uptr+  - URG pointer is non-zero, but URG flag not set
+               urgf+  - URG flag used
+               pushf+ - PUSH flag used
+
+               ts1-   - own timestamp specified as zero
+               ts2+   - non-zero peer timestamp on initial SYN
+               opt+   - trailing non-zero data in options segment
+               exws   - excessive window scaling factor (> 14)
+               bad    - malformed TCP options
+
+               If a signature scoped to both IPv4 and IPv6 contains quirks valid
+               for just one of these protocols, such quirks will be ignored for
+               on packets using the other protocol. For example, any combination
+               of 'df', 'id+', and 'id-' is always matched by any IPv6 packet.
+
+               NEW SIGNATURES: Copy literally.
+
+  pclass     - payload size classification: '0' for zero, '+' for non-zero,
+               '*' for any. The packets we fingerprint right now normally have
+               no payloads, but some corner cases exist.
+
+               NEW SIGNATURES: Copy literally.
+
+NOTE: The TCP module allows some fuzziness when an exact match can't be found:
+'df' and 'id+' quirks are allowed to disappear; 'id-' or 'ecn' may appear; and
+TTLs can change.
+
+To gather new SYN ('request') signatures, simply connect to the fingerprinted
+system, and p0f will provide you with the necessary data. To gather SYN+ACK
+('response') signatures, you should use the bundled p0f-sendsyn utility while p0f
+is running in the background; creating them manually is not advisable.
