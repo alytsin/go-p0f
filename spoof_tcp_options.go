@@ -121,14 +121,14 @@ func SpoofTcpOptions(tcp *layers.TCP, sig *signature.Signature) {
 				ts1Hint = 0
 			} else if !tsFound || ts1Hint == 0 {
 				// just random values
-				ts1Hint = uint32(rand.Int31n((0xFFFFFFFF - 0xFF) + 0xFF))
+				ts1Hint = uint32(rand.Intn((0xFFFFFFFF - 0xFF) + 0xFF))
 			}
 
 			// non-zero peer timestamp on initial SYN
 			if sig.Quirks.TsPlus && tcp.SYN {
 				if !tsFound || ts2Hint == 0 {
 					// just random values
-					ts2Hint = uint32(rand.Int31n((0xFFFFFFFF - 0xFF) + 0xFF))
+					ts2Hint = uint32(rand.Intn((0xFFFFFFFF - 0xFF) + 0xFF))
 				}
 			} else {
 				ts2Hint = 0
